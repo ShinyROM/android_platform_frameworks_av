@@ -217,7 +217,7 @@ OMX_ERRORTYPE SoftAVCEncoder::initEncParams() {
     mHandle->CBAVC_Free = FreeWrapper;
 
     CHECK(mEncParams != NULL);
-    memset(mEncParams, 0, sizeof(mEncParams));
+    memset(mEncParams, 0, sizeof(*mEncParams));
     mEncParams->rate_control = AVC_ON;
     mEncParams->initQP = 0;
     mEncParams->init_CBP_removal_delay = 1600;
@@ -593,6 +593,17 @@ OMX_ERRORTYPE SoftAVCEncoder::internalSetParameter(
                 mVideoHeight = def->format.video.nFrameHeight;
                 mVideoFrameRate = def->format.video.xFramerate >> 16;
                 mVideoColorFormat = def->format.video.eColorFormat;
+
+                OMX_PARAM_PORTDEFINITIONTYPE *portDef =
+                    &editPortInfo(0)->mDef;
+                portDef->format.video.nFrameWidth = mVideoWidth;
+                portDef->format.video.nFrameHeight = mVideoHeight;
+                portDef->format.video.xFramerate = def->format.video.xFramerate;
+                portDef->format.video.eColorFormat =
+                    (OMX_COLOR_FORMATTYPE) mVideoColorFormat;
+                portDef = &editPortInfo(1)->mDef;
+                portDef->format.video.nFrameWidth = mVideoWidth;
+                portDef->format.video.nFrameHeight = mVideoHeight;
             } else {
                 mVideoBitRate = def->format.video.nBitrate;
             }
@@ -810,7 +821,7 @@ void SoftAVCEncoder::onQueueFilled(OMX_U32 portIndex) {
                 if (mStoreMetaDataInBuffers) {
                     if (inHeader->nFilledLen != 8) {
                         ALOGE("MetaData buffer is wrong size! "
-                                "(got %lu bytes, expected 8)", inHeader->nFilledLen);
+                                "(got %u bytes, expected 8)", inHeader->nFilledLen);
                         mSignalledError = true;
                         notify(OMX_EventError, OMX_ErrorUndefined, 0, 0);
                         return;
@@ -871,7 +882,13 @@ void SoftAVCEncoder::onQueueFilled(OMX_U32 portIndex) {
         CHECK(encoderStatus == AVCENC_SUCCESS || encoderStatus == AVCENC_NEW_IDR);
         dataLength = outHeader->nAllocLen;  // Reset the output buffer length
         if (inHeader->nFilledLen > 0) {
+            if (outHeader->nAllocLen >= 4) {
+                memcpy(outPtr, "\x00\x00\x00\x01", 4);
+                outPtr += 4;
+                dataLength -= 4;
+            }
             encoderStatus = PVAVCEncodeNAL(mHandle, outPtr, &dataLength, &type);
+            dataLength = outPtr + dataLength - outHeader->pBuffer;
             if (encoderStatus == AVCENC_SUCCESS) {
                 CHECK(NULL == PVAVCEncGetOverrunBuffer(mHandle));
             } else if (encoderStatus == AVCENC_PICTURE_READY) {
@@ -964,7 +981,7 @@ uint8_t *SoftAVCEncoder::extractGrallocData(void *data, buffer_handle_t *buffer)
     status_t res;
     if (type != kMetadataBufferTypeGrallocSource) {
         ALOGE("Data passed in with metadata mode does not have type "
-                "kMetadataBufferTypeGrallocSource (%d), has type %ld instead",
+                "kMetadataBufferTypeGrallocSource (%d), has type %d instead",
                 kMetadataBufferTypeGrallocSource, type);
         return NULL;
     }

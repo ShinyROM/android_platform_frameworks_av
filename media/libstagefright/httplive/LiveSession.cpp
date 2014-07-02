@@ -40,6 +40,7 @@
 #include <utils/Mutex.h>
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <openssl/aes.h>
 #include <openssl/md5.h>
 
@@ -172,7 +173,7 @@ status_t LiveSession::dequeueAccessUnit(
         if (stream == STREAMTYPE_AUDIO || stream == STREAMTYPE_VIDEO) {
             int64_t timeUs;
             CHECK((*accessUnit)->meta()->findInt64("timeUs",  &timeUs));
-            ALOGV("[%s] read buffer at time %lld us", streamStr, timeUs);
+            ALOGV("[%s] read buffer at time %" PRId64 " us", streamStr, timeUs);
 
             mLastDequeuedTimeUs = timeUs;
             mRealTimeBaseUs = ALooper::GetNowUs() - timeUs;
@@ -492,7 +493,7 @@ void LiveSession::onConnect(const sp<AMessage> &msg) {
     mPlaylist = fetchPlaylist(url.c_str(), NULL /* curPlaylistHash */, &dummy);
 
     if (mPlaylist == NULL) {
-        ALOGE("unable to fetch master playlist '%s'.", url.c_str());
+        ALOGE("unable to fetch master playlist <URL suppressed>.");
 
         postPrepared(ERROR_IO);
         return;
@@ -688,7 +689,7 @@ ssize_t LiveSession::fetchFile(
         if (bufferRemaining == 0 && getSizeErr != OK) {
             bufferRemaining = 32768;
 
-            ALOGV("increasing download buffer to %d bytes",
+            ALOGV("increasing download buffer to %zu bytes",
                  buffer->size() + bufferRemaining);
 
             sp<ABuffer> copy = new ABuffer(buffer->size() + bufferRemaining);
@@ -701,7 +702,7 @@ ssize_t LiveSession::fetchFile(
         size_t maxBytesToRead = bufferRemaining;
         if (range_length >= 0) {
             int64_t bytesLeftInRange = range_length - buffer->size();
-            if (bytesLeftInRange < maxBytesToRead) {
+            if (bytesLeftInRange < (int64_t)maxBytesToRead) {
                 maxBytesToRead = bytesLeftInRange;
 
                 if (bytesLeftInRange == 0) {
@@ -768,9 +769,6 @@ sp<M3UParser> LiveSession::fetchPlaylist(
     if (curPlaylistHash != NULL && !memcmp(hash, curPlaylistHash, 16)) {
         // playlist unchanged
         *unchanged = true;
-
-        ALOGV("Playlist unchanged, refresh state is now %d",
-             (int)mRefreshState);
 
         return NULL;
     }
@@ -971,7 +969,7 @@ void LiveSession::changeConfiguration(
 
     mPrevBandwidthIndex = bandwidthIndex;
 
-    ALOGV("changeConfiguration => timeUs:%lld us, bwIndex:%d, pickTrack:%d",
+    ALOGV("changeConfiguration => timeUs:%" PRId64 " us, bwIndex:%zu, pickTrack:%d",
           timeUs, bandwidthIndex, pickTrack);
 
     if (pickTrack) {

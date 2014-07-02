@@ -196,7 +196,7 @@ void CameraService::onDeviceStatusChanged(int cameraId,
              */
         }
 
-        ALOGV("%s: After unplug, disconnected %d clients",
+        ALOGV("%s: After unplug, disconnected %zu clients",
               __FUNCTION__, clientsToDisconnect.size());
     }
 
@@ -1052,13 +1052,13 @@ void CameraService::BasicClient::opChanged(int32_t op, const String16& packageNa
 // ----------------------------------------------------------------------------
 
 Mutex* CameraService::Client::getClientLockFromCookie(void* user) {
-    return gCameraService->getClientLockById((int) user);
+    return gCameraService->getClientLockById((int)(intptr_t) user);
 }
 
 // Provide client pointer for callbacks. Client lock returned from getClientLockFromCookie should
 // be acquired for this to be safe
 CameraService::Client* CameraService::Client::getClientFromCookie(void* user) {
-    BasicClient *basicClient = gCameraService->getClientByIdUnsafe((int) user);
+    BasicClient *basicClient = gCameraService->getClientByIdUnsafe((int)(intptr_t) user);
     // OK: only CameraClient calls this, and they already cast anyway.
     Client* client = static_cast<Client*>(basicClient);
 
@@ -1169,6 +1169,7 @@ status_t CameraService::dump(int fd, const Vector<String16>& args) {
         if (!mModule) {
             result = String8::format("No camera module available!\n");
             write(fd, result.string(), result.size());
+            if (locked) mServiceLock.unlock();
             return NO_ERROR;
         }
 

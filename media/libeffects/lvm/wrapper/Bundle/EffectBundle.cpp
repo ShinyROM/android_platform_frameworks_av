@@ -138,22 +138,22 @@ void Effect_getConfig          (EffectContext *pContext, effect_config_t *pConfi
 int  BassBoost_setParameter    (EffectContext *pContext, void *pParam, void *pValue);
 int  BassBoost_getParameter    (EffectContext *pContext,
                                void           *pParam,
-                               size_t         *pValueSize,
+                               uint32_t       *pValueSize,
                                void           *pValue);
 int  Virtualizer_setParameter  (EffectContext *pContext, void *pParam, void *pValue);
 int  Virtualizer_getParameter  (EffectContext *pContext,
                                void           *pParam,
-                               size_t         *pValueSize,
+                               uint32_t       *pValueSize,
                                void           *pValue);
 int  Equalizer_setParameter    (EffectContext *pContext, void *pParam, void *pValue);
 int  Equalizer_getParameter    (EffectContext *pContext,
                                 void          *pParam,
-                                size_t        *pValueSize,
+                                uint32_t      *pValueSize,
                                 void          *pValue);
 int  Volume_setParameter       (EffectContext *pContext, void *pParam, void *pValue);
 int  Volume_getParameter       (EffectContext *pContext,
                                 void          *pParam,
-                                size_t        *pValueSize,
+                                uint32_t      *pValueSize,
                                 void          *pValue);
 int Effect_setEnabled(EffectContext *pContext, bool enabled);
 
@@ -1758,7 +1758,7 @@ int32_t VolumeEnableStereoPosition(EffectContext *pContext, uint32_t enabled){
 
 int BassBoost_getParameter(EffectContext     *pContext,
                            void              *pParam,
-                           size_t            *pValueSize,
+                           uint32_t          *pValueSize,
                            void              *pValue){
     int status = 0;
     int32_t *pParamTemp = (int32_t *)pParam;
@@ -1876,7 +1876,7 @@ int BassBoost_setParameter (EffectContext *pContext, void *pParam, void *pValue)
 
 int Virtualizer_getParameter(EffectContext        *pContext,
                              void                 *pParam,
-                             size_t               *pValueSize,
+                             uint32_t             *pValueSize,
                              void                 *pValue){
     int status = 0;
     int32_t *pParamTemp = (int32_t *)pParam;
@@ -1994,7 +1994,7 @@ int Virtualizer_setParameter (EffectContext *pContext, void *pParam, void *pValu
 //----------------------------------------------------------------------------
 int Equalizer_getParameter(EffectContext     *pContext,
                            void              *pParam,
-                           size_t            *pValueSize,
+                           uint32_t          *pValueSize,
                            void              *pValue){
     int status = 0;
     int bMute = 0;
@@ -2252,7 +2252,7 @@ int Equalizer_setParameter (EffectContext *pContext, void *pParam, void *pValue)
 
 int Volume_getParameter(EffectContext     *pContext,
                         void              *pParam,
-                        size_t            *pValueSize,
+                        uint32_t          *pValueSize,
                         void              *pValue){
     int status = 0;
     int bMute = 0;
@@ -2813,9 +2813,9 @@ int Effect_command(effect_handle_t  self,
 
             if(pContext->EffectType == LVM_BASS_BOOST){
                 if (pCmdData == NULL ||
-                        cmdSize < (int)(sizeof(effect_param_t) + sizeof(int32_t)) ||
+                        cmdSize < (sizeof(effect_param_t) + sizeof(int32_t)) ||
                         pReplyData == NULL ||
-                        *replySize < (int) (sizeof(effect_param_t) + sizeof(int32_t))){
+                        *replySize < (sizeof(effect_param_t) + sizeof(int32_t))){
                     ALOGV("\tLVM_ERROR : BassBoost_command cmdCode Case: "
                             "EFFECT_CMD_GET_PARAM: ERROR");
                     return -EINVAL;
@@ -2830,7 +2830,7 @@ int Effect_command(effect_handle_t  self,
 
                 p->status = android::BassBoost_getParameter(pContext,
                                                             p->data,
-                                                            (size_t  *)&p->vsize,
+                                                            &p->vsize,
                                                             p->data + voffset);
 
                 *replySize = sizeof(effect_param_t) + voffset + p->vsize;
@@ -2844,9 +2844,9 @@ int Effect_command(effect_handle_t  self,
 
             if(pContext->EffectType == LVM_VIRTUALIZER){
                 if (pCmdData == NULL ||
-                        cmdSize < (int)(sizeof(effect_param_t) + sizeof(int32_t)) ||
+                        cmdSize < (sizeof(effect_param_t) + sizeof(int32_t)) ||
                         pReplyData == NULL ||
-                        *replySize < (int) (sizeof(effect_param_t) + sizeof(int32_t))){
+                        *replySize < (sizeof(effect_param_t) + sizeof(int32_t))){
                     ALOGV("\tLVM_ERROR : Virtualizer_command cmdCode Case: "
                             "EFFECT_CMD_GET_PARAM: ERROR");
                     return -EINVAL;
@@ -2860,8 +2860,8 @@ int Effect_command(effect_handle_t  self,
                 int voffset = ((p->psize - 1) / sizeof(int32_t) + 1) * sizeof(int32_t);
 
                 p->status = android::Virtualizer_getParameter(pContext,
-                                                             (void *)p->data,
-                                                             (size_t  *)&p->vsize,
+                                                              (void *)p->data,
+                                                              &p->vsize,
                                                               p->data + voffset);
 
                 *replySize = sizeof(effect_param_t) + voffset + p->vsize;
@@ -2876,7 +2876,7 @@ int Effect_command(effect_handle_t  self,
                 //ALOGV("\tEqualizer_command cmdCode Case: "
                 //        "EFFECT_CMD_GET_PARAM start");
                 if (pCmdData == NULL ||
-                    cmdSize < (int)(sizeof(effect_param_t) + sizeof(int32_t)) ||
+                    cmdSize < (sizeof(effect_param_t) + sizeof(int32_t)) ||
                     pReplyData == NULL ||
                     *replySize < (int) (sizeof(effect_param_t) + sizeof(int32_t))) {
                     ALOGV("\tLVM_ERROR : Equalizer_command cmdCode Case: "
@@ -2908,7 +2908,7 @@ int Effect_command(effect_handle_t  self,
             if(pContext->EffectType == LVM_VOLUME){
                 //ALOGV("\tVolume_command cmdCode Case: EFFECT_CMD_GET_PARAM start");
                 if (pCmdData == NULL ||
-                        cmdSize < (int)(sizeof(effect_param_t) + sizeof(int32_t)) ||
+                        cmdSize < (sizeof(effect_param_t) + sizeof(int32_t)) ||
                         pReplyData == NULL ||
                         *replySize < (int) (sizeof(effect_param_t) + sizeof(int32_t))){
                     ALOGV("\tLVM_ERROR : Volume_command cmdCode Case: "
@@ -2925,7 +2925,7 @@ int Effect_command(effect_handle_t  self,
 
                 p->status = android::Volume_getParameter(pContext,
                                                          (void *)p->data,
-                                                         (size_t  *)&p->vsize,
+                                                         &p->vsize,
                                                          p->data + voffset);
 
                 *replySize = sizeof(effect_param_t) + voffset + p->vsize;
@@ -2947,7 +2947,7 @@ int Effect_command(effect_handle_t  self,
                 //       *(int16_t *)((char *)pCmdData + sizeof(effect_param_t) + sizeof(int32_t)));
 
                 if (pCmdData   == NULL||
-                    cmdSize    != (int)(sizeof(effect_param_t) + sizeof(int32_t) +sizeof(int16_t))||
+                    cmdSize    != (sizeof(effect_param_t) + sizeof(int32_t) +sizeof(int16_t))||
                     pReplyData == NULL||
                     *replySize != sizeof(int32_t)){
                     ALOGV("\tLVM_ERROR : BassBoost_command cmdCode Case: "
@@ -2980,7 +2980,7 @@ int Effect_command(effect_handle_t  self,
               //        *(int16_t *)((char *)pCmdData + sizeof(effect_param_t) + sizeof(int32_t)));
 
                 if (pCmdData   == NULL||
-                    cmdSize    != (int)(sizeof(effect_param_t) + sizeof(int32_t) +sizeof(int16_t))||
+                    cmdSize    != (sizeof(effect_param_t) + sizeof(int32_t) +sizeof(int16_t))||
                     pReplyData == NULL||
                     *replySize != sizeof(int32_t)){
                     ALOGV("\tLVM_ERROR : Virtualizer_command cmdCode Case: "
@@ -3014,7 +3014,7 @@ int Effect_command(effect_handle_t  self,
                //        *replySize,
                //        *(int16_t *)((char *)pCmdData + sizeof(effect_param_t) + sizeof(int32_t)));
 
-                if (pCmdData == NULL || cmdSize < (int)(sizeof(effect_param_t) + sizeof(int32_t)) ||
+                if (pCmdData == NULL || cmdSize < (sizeof(effect_param_t) + sizeof(int32_t)) ||
                     pReplyData == NULL || *replySize != sizeof(int32_t)) {
                     ALOGV("\tLVM_ERROR : Equalizer_command cmdCode Case: "
                             "EFFECT_CMD_SET_PARAM: ERROR");
@@ -3034,7 +3034,7 @@ int Effect_command(effect_handle_t  self,
                 //        *(int16_t *)((char *)pCmdData + sizeof(effect_param_t) +sizeof(int32_t)));
 
                 if (    pCmdData   == NULL||
-                        cmdSize    < (int)(sizeof(effect_param_t) + sizeof(int32_t))||
+                        cmdSize    < (sizeof(effect_param_t) + sizeof(int32_t))||
                         pReplyData == NULL||
                         *replySize != sizeof(int32_t)){
                     ALOGV("\tLVM_ERROR : Volume_command cmdCode Case: "
@@ -3267,13 +3267,13 @@ const struct effect_interface_s gLvmEffectInterface = {
 // This is the only symbol that needs to be exported
 __attribute__ ((visibility ("default")))
 audio_effect_library_t AUDIO_EFFECT_LIBRARY_INFO_SYM = {
-    tag : AUDIO_EFFECT_LIBRARY_TAG,
-    version : EFFECT_LIBRARY_API_VERSION,
-    name : "Effect Bundle Library",
-    implementor : "NXP Software Ltd.",
-    create_effect : android::EffectCreate,
-    release_effect : android::EffectRelease,
-    get_descriptor : android::EffectGetDescriptor,
+    .tag = AUDIO_EFFECT_LIBRARY_TAG,
+    .version = EFFECT_LIBRARY_API_VERSION,
+    .name = "Effect Bundle Library",
+    .implementor = "NXP Software Ltd.",
+    .create_effect = android::EffectCreate,
+    .release_effect = android::EffectRelease,
+    .get_descriptor = android::EffectGetDescriptor,
 };
 
 }

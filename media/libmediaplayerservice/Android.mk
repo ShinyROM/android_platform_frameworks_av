@@ -26,6 +26,7 @@ LOCAL_SRC_FILES:=               \
 LOCAL_SHARED_LIBRARIES :=       \
     libbinder                   \
     libcamera_client            \
+    libcrypto                   \
     libcutils                   \
     liblog                      \
     libdl                       \
@@ -53,6 +54,8 @@ LOCAL_C_INCLUDES :=                                                 \
     $(TOP)/external/tremolo/Tremolo                                 \
 
 LOCAL_MODULE:= libmediaplayerservice
+
+LOCAL_32_BIT_ONLY := true
 
 include $(BUILD_SHARED_LIBRARY)
 

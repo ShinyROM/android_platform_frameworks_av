@@ -678,6 +678,10 @@ AudioPolicyService::AudioCommandThread::~AudioCommandThread()
     if (!mAudioCommands.isEmpty()) {
         release_wake_lock(mName.string());
     }
+    for (size_t k=0; k < mAudioCommands.size(); k++) {
+        delete mAudioCommands[k]->mParam;
+        delete mAudioCommands[k];
+    }
     mAudioCommands.clear();
     delete mpToneGenerator;
 }
@@ -849,7 +853,7 @@ void AudioPolicyService::AudioCommandThread::startToneCommand(ToneGenerator::ton
     ToneData *data = new ToneData();
     data->mType = type;
     data->mStream = stream;
-    command->mParam = (void *)data;
+    command->mParam = data;
     Mutex::Autolock _l(mLock);
     insertCommand_l(command);
     ALOGV("AudioCommandThread() adding tone start type %d, stream %d", type, stream);
@@ -950,7 +954,7 @@ void AudioPolicyService::AudioCommandThread::stopOutputCommand(audio_io_handle_t
     data->mIO = output;
     data->mStream = stream;
     data->mSession = session;
-    command->mParam = (void *)data;
+    command->mParam = data;
     Mutex::Autolock _l(mLock);
     insertCommand_l(command);
     ALOGV("AudioCommandThread() adding stop output %d", output);
@@ -963,7 +967,7 @@ void AudioPolicyService::AudioCommandThread::releaseOutputCommand(audio_io_handl
     command->mCommand = RELEASE_OUTPUT;
     ReleaseOutputData *data = new ReleaseOutputData();
     data->mIO = output;
-    command->mParam = (void *)data;
+    command->mParam = data;
     Mutex::Autolock _l(mLock);
     insertCommand_l(command);
     ALOGV("AudioCommandThread() adding release output %d", output);
@@ -1052,6 +1056,10 @@ void AudioPolicyService::AudioCommandThread::insertCommand_l(AudioCommand *comma
         for (size_t k = i + 1; k < mAudioCommands.size(); k++) {
             if (mAudioCommands[k] == removedCommands[j]) {
                 ALOGV("suppressing command: %d", mAudioCommands[k]->mCommand);
+                // for commands that are not filtered,
+                // command->mParam is deleted in threadLoop
+                delete mAudioCommands[k]->mParam;
+                delete mAudioCommands[k];
                 mAudioCommands.removeAt(k);
                 break;
             }
@@ -1301,7 +1309,7 @@ effect_param_t *AudioPolicyService::loadEffectParameter(cnode *root)
     return fx_param;
 
 error:
-    delete fx_param;
+    free(fx_param);
     return NULL;
 }
 
@@ -1432,6 +1440,14 @@ status_t AudioPolicyService::loadPreProcessorConfig(const char *path)
     Vector <EffectDesc *> effects;
     loadEffects(root, effects);
     loadInputSources(root, effects);
+
+    // delete effects to fix memory leak.
+    // as effects is local var and valgrind would treat this as memory leak
+    // and although it only did in mediaserver init, but free it in case mediaserver reboot
+    size_t i;
+    for (i = 0; i < effects.size(); i++) {
+      delete effects[i];
+    }
 
     config_free(root);
     free(root);

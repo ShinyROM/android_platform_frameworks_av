@@ -26,7 +26,6 @@
 #define ATRACE_TAG ATRACE_TAG_AUDIO
 
 #include "Configuration.h"
-#include <sys/atomics.h>
 #include <time.h>
 #include <utils/Log.h>
 #include <utils/Trace.h>
@@ -179,7 +178,7 @@ bool FastMixer::threadLoop()
                 ALOG_ASSERT(coldFutexAddr != NULL);
                 int32_t old = android_atomic_dec(coldFutexAddr);
                 if (old <= 0) {
-                    __futex_syscall4(coldFutexAddr, FUTEX_WAIT_PRIVATE, old - 1, NULL);
+                    (void) syscall(__NR_futex, coldFutexAddr, FUTEX_WAIT_PRIVATE, old - 1, NULL);
                 }
                 int policy = sched_getscheduler(0);
                 if (!(policy == SCHED_FIFO || policy == SCHED_RR)) {
@@ -236,7 +235,6 @@ bool FastMixer::threadLoop()
                     sampleRate = Format_sampleRate(format);
                     ALOG_ASSERT(Format_channelCount(format) == FCC_2);
                 }
-                dumpState->mSampleRate = sampleRate;
             }
 
             if ((format != previousFormat) || (frameCount != previous->mFrameCount)) {
@@ -321,12 +319,8 @@ bool FastMixer::threadLoop()
                         mixer->setParameter(name, AudioMixer::TRACK, AudioMixer::MAIN_BUFFER,
                                 (void *) mixBuffer);
                         // newly allocated track names default to full scale volume
-                        if (fastTrack->mSampleRate != 0 && fastTrack->mSampleRate != sampleRate) {
-                            mixer->setParameter(name, AudioMixer::RESAMPLE,
-                                    AudioMixer::SAMPLE_RATE, (void*) fastTrack->mSampleRate);
-                        }
                         mixer->setParameter(name, AudioMixer::TRACK, AudioMixer::CHANNEL_MASK,
-                                (void *) fastTrack->mChannelMask);
+                                (void *)(uintptr_t)fastTrack->mChannelMask);
                         mixer->enable(name);
                     }
                     generations[i] = fastTrack->mGeneration;
@@ -353,16 +347,10 @@ bool FastMixer::threadLoop()
                                 mixer->setParameter(name, AudioMixer::VOLUME, AudioMixer::VOLUME1,
                                         (void *)0x1000);
                             }
-                            if (fastTrack->mSampleRate != 0 &&
-                                    fastTrack->mSampleRate != sampleRate) {
-                                mixer->setParameter(name, AudioMixer::RESAMPLE,
-                                        AudioMixer::SAMPLE_RATE, (void*) fastTrack->mSampleRate);
-                            } else {
-                                mixer->setParameter(name, AudioMixer::RESAMPLE,
-                                        AudioMixer::REMOVE, NULL);
-                            }
+                            mixer->setParameter(name, AudioMixer::RESAMPLE,
+                                    AudioMixer::REMOVE, NULL);
                             mixer->setParameter(name, AudioMixer::TRACK, AudioMixer::CHANNEL_MASK,
-                                    (void *) fastTrack->mChannelMask);
+                                    (void *)(uintptr_t) fastTrack->mChannelMask);
                             // already enabled
                         }
                         generations[i] = fastTrack->mGeneration;
@@ -392,16 +380,8 @@ bool FastMixer::threadLoop()
 
                 // Refresh the per-track timestamp
                 if (timestampStatus == NO_ERROR) {
-                    uint32_t trackFramesWrittenButNotPresented;
-                    uint32_t trackSampleRate = fastTrack->mSampleRate;
-                    // There is currently no sample rate conversion for fast tracks currently
-                    if (trackSampleRate != 0 && trackSampleRate != sampleRate) {
-                        trackFramesWrittenButNotPresented =
-                                ((int64_t) nativeFramesWrittenButNotPresented * trackSampleRate) /
-                                sampleRate;
-                    } else {
-                        trackFramesWrittenButNotPresented = nativeFramesWrittenButNotPresented;
-                    }
+                    uint32_t trackFramesWrittenButNotPresented =
+                        nativeFramesWrittenButNotPresented;
                     uint32_t trackFramesWritten = fastTrack->mBufferProvider->framesReleased();
                     // Can't provide an AudioTimestamp before first frame presented,
                     // or during the brief 32-bit wraparound window
@@ -419,9 +399,9 @@ bool FastMixer::threadLoop()
                 if (fastTrack->mVolumeProvider != NULL) {
                     uint32_t vlr = fastTrack->mVolumeProvider->getVolumeLR();
                     mixer->setParameter(name, AudioMixer::VOLUME, AudioMixer::VOLUME0,
-                            (void *)(vlr & 0xFFFF));
+                            (void *)(uintptr_t)(vlr & 0xFFFF));
                     mixer->setParameter(name, AudioMixer::VOLUME, AudioMixer::VOLUME1,
-                            (void *)(vlr >> 16));
+                            (void *)(uintptr_t)(vlr >> 16));
                 }
                 // FIXME The current implementation of framesReady() for fast tracks
                 // takes a tryLock, which can block
@@ -714,7 +694,7 @@ static int compare_uint32_t(const void *pa, const void *pb)
 void FastMixerDumpState::dump(int fd) const
 {
     if (mCommand == FastMixerState::INITIAL) {
-        fdprintf(fd, "FastMixer not initialized\n");
+        dprintf(fd, "FastMixer not initialized\n");
         return;
     }
 #define COMMAND_MAX 32
@@ -748,9 +728,9 @@ void FastMixerDumpState::dump(int fd) const
     double measuredWarmupMs = (mMeasuredWarmupTs.tv_sec * 1000.0) +
             (mMeasuredWarmupTs.tv_nsec / 1000000.0);
     double mixPeriodSec = (double) mFrameCount / (double) mSampleRate;
-    fdprintf(fd, "FastMixer command=%s writeSequence=%u framesWritten=%u\n"
+    dprintf(fd, "FastMixer command=%s writeSequence=%u framesWritten=%u\n"
                  "          numTracks=%u writeErrors=%u underruns=%u overruns=%u\n"
-                 "          sampleRate=%u frameCount=%u measuredWarmup=%.3g ms, warmupCycles=%u\n"
+                 "          sampleRate=%u frameCount=%zu measuredWarmup=%.3g ms, warmupCycles=%u\n"
                  "          mixPeriod=%.2f ms\n",
                  string, mWriteSequence, mFramesWritten,
                  mNumTracks, mWriteErrors, mUnderruns, mOverruns,
@@ -802,21 +782,21 @@ void FastMixerDumpState::dump(int fd) const
         previousCpukHz = sampleCpukHz;
 #endif
     }
-    fdprintf(fd, "Simple moving statistics over last %.1f seconds:\n", wall.n() * mixPeriodSec);
-    fdprintf(fd, "  wall clock time in ms per mix cycle:\n"
-                 "    mean=%.2f min=%.2f max=%.2f stddev=%.2f\n",
-                 wall.mean()*1e-6, wall.minimum()*1e-6, wall.maximum()*1e-6, wall.stddev()*1e-6);
-    fdprintf(fd, "  raw CPU load in us per mix cycle:\n"
-                 "    mean=%.0f min=%.0f max=%.0f stddev=%.0f\n",
-                 loadNs.mean()*1e-3, loadNs.minimum()*1e-3, loadNs.maximum()*1e-3,
-                 loadNs.stddev()*1e-3);
+    dprintf(fd, "Simple moving statistics over last %.1f seconds:\n", wall.n() * mixPeriodSec);
+    dprintf(fd, "  wall clock time in ms per mix cycle:\n"
+                "    mean=%.2f min=%.2f max=%.2f stddev=%.2f\n",
+                wall.mean()*1e-6, wall.minimum()*1e-6, wall.maximum()*1e-6, wall.stddev()*1e-6);
+    dprintf(fd, "  raw CPU load in us per mix cycle:\n"
+                "    mean=%.0f min=%.0f max=%.0f stddev=%.0f\n",
+                loadNs.mean()*1e-3, loadNs.minimum()*1e-3, loadNs.maximum()*1e-3,
+                loadNs.stddev()*1e-3);
 #ifdef CPU_FREQUENCY_STATISTICS
-    fdprintf(fd, "  CPU clock frequency in MHz:\n"
-                 "    mean=%.0f min=%.0f max=%.0f stddev=%.0f\n",
-                 kHz.mean()*1e-3, kHz.minimum()*1e-3, kHz.maximum()*1e-3, kHz.stddev()*1e-3);
-    fdprintf(fd, "  adjusted CPU load in MHz (i.e. normalized for CPU clock frequency):\n"
-                 "    mean=%.1f min=%.1f max=%.1f stddev=%.1f\n",
-                 loadMHz.mean(), loadMHz.minimum(), loadMHz.maximum(), loadMHz.stddev());
+    dprintf(fd, "  CPU clock frequency in MHz:\n"
+                "    mean=%.0f min=%.0f max=%.0f stddev=%.0f\n",
+                kHz.mean()*1e-3, kHz.minimum()*1e-3, kHz.maximum()*1e-3, kHz.stddev()*1e-3);
+    dprintf(fd, "  adjusted CPU load in MHz (i.e. normalized for CPU clock frequency):\n"
+                "    mean=%.1f min=%.1f max=%.1f stddev=%.1f\n",
+                loadMHz.mean(), loadMHz.minimum(), loadMHz.maximum(), loadMHz.stddev());
 #endif
     if (tail != NULL) {
         qsort(tail, n, sizeof(uint32_t), compare_uint32_t);
@@ -827,12 +807,12 @@ void FastMixerDumpState::dump(int fd) const
             left.sample(tail[i]);
             right.sample(tail[n - (i + 1)]);
         }
-        fdprintf(fd, "Distribution of mix cycle times in ms for the tails (> ~3 stddev outliers):\n"
-                     "  left tail: mean=%.2f min=%.2f max=%.2f stddev=%.2f\n"
-                     "  right tail: mean=%.2f min=%.2f max=%.2f stddev=%.2f\n",
-                     left.mean()*1e-6, left.minimum()*1e-6, left.maximum()*1e-6, left.stddev()*1e-6,
-                     right.mean()*1e-6, right.minimum()*1e-6, right.maximum()*1e-6,
-                     right.stddev()*1e-6);
+        dprintf(fd, "Distribution of mix cycle times in ms for the tails (> ~3 stddev outliers):\n"
+                    "  left tail: mean=%.2f min=%.2f max=%.2f stddev=%.2f\n"
+                    "  right tail: mean=%.2f min=%.2f max=%.2f stddev=%.2f\n",
+                    left.mean()*1e-6, left.minimum()*1e-6, left.maximum()*1e-6, left.stddev()*1e-6,
+                    right.mean()*1e-6, right.minimum()*1e-6, right.maximum()*1e-6,
+                    right.stddev()*1e-6);
         delete[] tail;
     }
 #endif
@@ -842,9 +822,9 @@ void FastMixerDumpState::dump(int fd) const
     // Instead we always display all tracks, with an indication
     // of whether we think the track is active.
     uint32_t trackMask = mTrackMask;
-    fdprintf(fd, "Fast tracks: kMaxFastTracks=%u activeMask=%#x\n",
+    dprintf(fd, "Fast tracks: kMaxFastTracks=%u activeMask=%#x\n",
             FastMixerState::kMaxFastTracks, trackMask);
-    fdprintf(fd, "Index Active Full Partial Empty  Recent Ready\n");
+    dprintf(fd, "Index Active Full Partial Empty  Recent Ready\n");
     for (uint32_t i = 0; i < FastMixerState::kMaxFastTracks; ++i, trackMask >>= 1) {
         bool isActive = trackMask & 1;
         const FastTrackDump *ftDump = &mTracks[i];
@@ -864,7 +844,7 @@ void FastMixerDumpState::dump(int fd) const
             mostRecent = "?";
             break;
         }
-        fdprintf(fd, "%5u %6s %4u %7u %5u %7s %5u\n", i, isActive ? "yes" : "no",
+        dprintf(fd, "%5u %6s %4u %7u %5u %7s %5zu\n", i, isActive ? "yes" : "no",
                 (underruns.mBitFields.mFull) & UNDERRUN_MASK,
                 (underruns.mBitFields.mPartial) & UNDERRUN_MASK,
                 (underruns.mBitFields.mEmpty) & UNDERRUN_MASK,

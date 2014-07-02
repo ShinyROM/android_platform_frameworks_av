@@ -46,7 +46,7 @@ LOCAL_STATIC_LIBRARIES := \
 
 
 LOCAL_SHARED_LIBRARIES :=     \
-    libaudioflinger           \
+    libaudioresampler         \
     libaudioutils             \
     libbinder                 \
     libcutils                 \
@@ -81,14 +81,9 @@ LOCAL_C_INCLUDES += \
     $(TOP)/frameworks/av/services/audioflinger \
     $(TOP)/frameworks/native/include/media/editor \
     $(TOP)/frameworks/native/include/media/openmax \
-    $(TOP)/frameworks/native/services/audioflinger
 
 
 LOCAL_SHARED_LIBRARIES += libdl
-
-# All of the shared libraries we link against.
-LOCAL_LDLIBS := \
-    -lpthread -ldl
 
 LOCAL_CFLAGS += -Wno-multichar \
      -DM4_ENABLE_RENDERINGMODE \

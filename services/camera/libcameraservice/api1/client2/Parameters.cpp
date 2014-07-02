@@ -948,7 +948,7 @@ status_t Parameters::buildFastInfo() {
         if (sceneModeOverrides.count !=
                 availableSceneModes.count * kModesPerSceneMode) {
             ALOGE("%s: Camera %d: Scene mode override list is an "
-                    "unexpected size: %d (expected %d)", __FUNCTION__,
+                    "unexpected size: %zu (expected %zu)", __FUNCTION__,
                     cameraId, sceneModeOverrides.count,
                     availableSceneModes.count);
             return NO_INIT;
@@ -1078,7 +1078,7 @@ camera_metadata_ro_entry_t Parameters::staticInfo(uint32_t tag,
         const char* tagName = get_camera_metadata_tag_name(tag);
         if (tagName == NULL) tagName = "<unknown>";
         ALOGE("Malformed static metadata entry '%s.%s' (%x):"
-                "Expected between %d and %d values, but got %d values",
+                "Expected between %zu and %zu values, but got %zu values",
                 tagSection, tagName, tag, minCount, maxCount, entry.count);
     }
 
@@ -1826,6 +1826,9 @@ status_t Parameters::updateRequest(CameraMetadata *request) const {
 
     camera_metadata_entry_t intent =
             request->find(ANDROID_CONTROL_CAPTURE_INTENT);
+
+    if (intent.count == 0) return BAD_VALUE;
+
     if (intent.data.u8[0] == ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) {
         res = request->update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
                 fastInfo.bestStillCaptureFpsRange, 2);
@@ -2406,7 +2409,7 @@ status_t Parameters::validateAreas(const Vector<Parameters::Area> &areas,
     }
 
     if (areas.size() > maxRegions) {
-        ALOGE("%s: Too many areas requested: %d",
+        ALOGE("%s: Too many areas requested: %zu",
                 __FUNCTION__, areas.size());
         return BAD_VALUE;
     }

@@ -239,7 +239,7 @@ void ARTSPConnection::onConnect(const sp<AMessage> &msg) {
         // right here, since we currently have no way of asking the user
         // for this information.
 
-        ALOGE("Malformed rtsp url %s", url.c_str());
+        ALOGE("Malformed rtsp url <URL suppressed>");
 
         reply->setInt32("result", ERROR_MALFORMED);
         reply->post();
@@ -489,7 +489,6 @@ void ARTSPConnection::onReceiveResponse() {
     FD_SET(mSocket, &rs);
 
     int res = select(mSocket + 1, &rs, NULL, NULL, &tv);
-    CHECK_GE(res, 0);
 
     if (res == 1) {
         MakeSocketBlocking(mSocket, true);

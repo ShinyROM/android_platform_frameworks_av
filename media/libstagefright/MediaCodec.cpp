@@ -115,7 +115,7 @@ status_t MediaCodec::init(const char *name, bool nameIsType, bool encoder) {
         if (codecIdx >= 0) {
             Vector<AString> types;
             if (mcl->getSupportedTypes(codecIdx, &types) == OK) {
-                for (int i = 0; i < types.size(); i++) {
+                for (size_t i = 0; i < types.size(); i++) {
                     if (types[i].startsWith("video/")) {
                         needDedicatedLooper = true;
                         break;
@@ -746,6 +746,10 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                             CHECK(msg->findInt32("width", &width));
                             CHECK(msg->findInt32("height", &height));
 
+                            int32_t cropLeft, cropTop, cropRight, cropBottom;
+                            CHECK(msg->findRect("crop",
+                                &cropLeft, &cropTop, &cropRight, &cropBottom));
+
                             int32_t colorFormat;
                             CHECK(msg->findInt32(
                                         "color-format", &colorFormat));
@@ -753,6 +757,8 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                             sp<MetaData> meta = new MetaData;
                             meta->setInt32(kKeyWidth, width);
                             meta->setInt32(kKeyHeight, height);
+                            meta->setRect(kKeyCropRect,
+                                cropLeft, cropTop, cropRight, cropBottom);
                             meta->setInt32(kKeyColorFormat, colorFormat);
 
                             mSoftRenderer =
@@ -1514,8 +1520,8 @@ size_t MediaCodec::updateBuffers(
         int32_t portIndex, const sp<AMessage> &msg) {
     CHECK(portIndex == kPortIndexInput || portIndex == kPortIndexOutput);
 
-    void *bufferID;
-    CHECK(msg->findPointer("buffer-id", &bufferID));
+    uint32_t bufferID;
+    CHECK(msg->findInt32("buffer-id", (int32_t*)&bufferID));
 
     Vector<BufferInfo> *buffers = &mPortBuffers[portIndex];
 
@@ -1674,7 +1680,7 @@ status_t MediaCodec::onReleaseOutputBuffer(const sp<AMessage> &msg) {
         return -EACCES;
     }
 
-    if (render && (info->mData == NULL || info->mData->size() != 0)) {
+    if (render && info->mData != NULL && info->mData->size() != 0) {
         info->mNotify->setInt32("render", true);
 
         if (mSoftRenderer != NULL) {

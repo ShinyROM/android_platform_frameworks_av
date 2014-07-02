@@ -41,9 +41,9 @@ struct MemorySource : public DataSource {
     }
 
     virtual ssize_t readAt(off64_t offset, void *data, size_t size) {
-        off64_t available = (offset >= mSize) ? 0ll : mSize - offset;
+        off64_t available = (offset >= (off64_t)mSize) ? 0ll : mSize - offset;
 
-        size_t copy = (available > size) ? size : available;
+        size_t copy = (available > (off64_t)size) ? size : available;
         memcpy(data, mData + offset, copy);
 
         return copy;
@@ -56,14 +56,14 @@ private:
     DISALLOW_EVIL_CONSTRUCTORS(MemorySource);
 };
 
-ID3::ID3(const sp<DataSource> &source, bool ignoreV1)
+ID3::ID3(const sp<DataSource> &source, bool ignoreV1, off64_t offset)
     : mIsValid(false),
       mData(NULL),
       mSize(0),
       mFirstFrameOffset(0),
       mVersion(ID3_UNKNOWN),
       mRawSize(0) {
-    mIsValid = parseV2(source);
+    mIsValid = parseV2(source, offset);
 
     if (!mIsValid && !ignoreV1) {
         mIsValid = parseV1(source);
@@ -79,7 +79,7 @@ ID3::ID3(const uint8_t *data, size_t size, bool ignoreV1)
       mRawSize(0) {
     sp<MemorySource> source = new MemorySource(data, size);
 
-    mIsValid = parseV2(source);
+    mIsValid = parseV2(source, 0);
 
     if (!mIsValid && !ignoreV1) {
         mIsValid = parseV1(source);
@@ -115,7 +115,7 @@ bool ID3::ParseSyncsafeInteger(const uint8_t encoded[4], size_t *x) {
     return true;
 }
 
-bool ID3::parseV2(const sp<DataSource> &source) {
+bool ID3::parseV2(const sp<DataSource> &source, off64_t offset) {
 struct id3_header {
     char id[3];
     uint8_t version_major;
@@ -126,7 +126,7 @@ struct id3_header {
 
     id3_header header;
     if (source->readAt(
-                0, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
+                offset, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
         return false;
     }
 
@@ -172,7 +172,7 @@ struct id3_header {
     }
 
     if (size > kMaxMetadataSize) {
-        ALOGE("skipping huge ID3 metadata of size %d", size);
+        ALOGE("skipping huge ID3 metadata of size %zu", size);
         return false;
     }
 
@@ -185,7 +185,7 @@ struct id3_header {
     mSize = size;
     mRawSize = mSize + sizeof(header);
 
-    if (source->readAt(sizeof(header), mData, mSize) != (ssize_t)mSize) {
+    if (source->readAt(offset + sizeof(header), mData, mSize) != (ssize_t)mSize) {
         free(mData);
         mData = NULL;
 
@@ -654,8 +654,8 @@ void ID3::Iterator::findFrame() {
             mFrameSize += 6;
 
             if (mOffset + mFrameSize > mParent.mSize) {
-                ALOGV("partial frame at offset %d (size = %d, bytes-remaining = %d)",
-                     mOffset, mFrameSize, mParent.mSize - mOffset - 6);
+                ALOGV("partial frame at offset %zu (size = %zu, bytes-remaining = %zu)",
+                    mOffset, mFrameSize, mParent.mSize - mOffset - (size_t)6);
                 return;
             }
 
@@ -695,8 +695,8 @@ void ID3::Iterator::findFrame() {
             mFrameSize = 10 + baseSize;
 
             if (mOffset + mFrameSize > mParent.mSize) {
-                ALOGV("partial frame at offset %d (size = %d, bytes-remaining = %d)",
-                     mOffset, mFrameSize, mParent.mSize - mOffset - 10);
+                ALOGV("partial frame at offset %zu (size = %zu, bytes-remaining = %zu)",
+                    mOffset, mFrameSize, mParent.mSize - mOffset - (size_t)10);
                 return;
             }
 

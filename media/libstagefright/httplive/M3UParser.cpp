@@ -126,7 +126,7 @@ void M3UParser::MediaGroup::pickRandomMediaItems() {
                 mSelectedIndex = strtoul(value, &end, 10);
                 CHECK(end > value && *end == '\0');
 
-                if (mSelectedIndex >= mMediaItems.size()) {
+                if (mSelectedIndex >= (ssize_t)mMediaItems.size()) {
                     mSelectedIndex = mMediaItems.size() - 1;
                 }
             } else {
@@ -163,18 +163,18 @@ status_t M3UParser::MediaGroup::selectTrack(size_t index, bool select) {
 
     if (select) {
         if (index >= mMediaItems.size()) {
-            ALOGE("track %d does not exist", index);
+            ALOGE("track %zu does not exist", index);
             return INVALID_OPERATION;
         }
-        if (mSelectedIndex == index) {
-            ALOGE("track %d already selected", index);
+        if (mSelectedIndex == (ssize_t)index) {
+            ALOGE("track %zu already selected", index);
             return BAD_VALUE;
         }
         ALOGV("selected track %d", index);
         mSelectedIndex = index;
     } else {
-        if (mSelectedIndex != index) {
-            ALOGE("track %d is not selected", index);
+        if (mSelectedIndex != (ssize_t)index) {
+            ALOGE("track %zu is not selected", index);
             return BAD_VALUE;
         }
         ALOGV("unselected track %d", index);
@@ -626,7 +626,7 @@ status_t M3UParser::parseMetaDataDuration(
     if (meta->get() == NULL) {
         *meta = new AMessage;
     }
-    (*meta)->setInt64(key, (int64_t)x * 1E6);
+    (*meta)->setInt64(key, (int64_t)(x * 1E6));
 
     return OK;
 }
@@ -798,8 +798,7 @@ status_t M3UParser::parseCipherInfo(
                 if (MakeURL(baseURI.c_str(), val.c_str(), &absURI)) {
                     val = absURI;
                 } else {
-                    ALOGE("failed to make absolute url for '%s'.",
-                         val.c_str());
+                    ALOGE("failed to make absolute url for <URL suppressed>.");
                 }
             }
 

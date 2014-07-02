@@ -379,7 +379,7 @@ status_t AudioFlinger::dump(int fd, const Vector<String16>& args)
         if (mLogMemoryDealer != 0) {
             sp<IBinder> binder = defaultServiceManager()->getService(String16("media.log"));
             if (binder != 0) {
-                fdprintf(fd, "\nmedia.log:\n");
+                dprintf(fd, "\nmedia.log:\n");
                 Vector<String16> args;
                 binder->dump(fd, args);
             }
@@ -525,7 +525,7 @@ sp<IAudioTrack> AudioFlinger::createTrack(
         }
 
         // Look for sync events awaiting for a session to be used.
-        for (int i = 0; i < (int)mPendingSyncEvents.size(); i++) {
+        for (size_t i = 0; i < mPendingSyncEvents.size(); i++) {
             if (mPendingSyncEvents[i]->triggerSession() == lSessionId) {
                 if (thread->isValidSyncEvent(mPendingSyncEvents[i])) {
                     if (lStatus == NO_ERROR) {
@@ -831,7 +831,7 @@ status_t AudioFlinger::setStreamMute(audio_stream_type_t stream, bool muted)
 
     AutoMutex lock(mLock);
     mStreamTypes[stream].mute = muted;
-    for (uint32_t i = 0; i < mPlaybackThreads.size(); i++)
+    for (size_t i = 0; i < mPlaybackThreads.size(); i++)
         mPlaybackThreads.valueAt(i)->setStreamMute(stream, muted);
 
     return NO_ERROR;
@@ -1012,7 +1012,7 @@ size_t AudioFlinger::getInputBufferSize(uint32_t sampleRate, audio_format_t form
     return size;
 }
 
-unsigned int AudioFlinger::getInputFramesLost(audio_io_handle_t ioHandle) const
+uint32_t AudioFlinger::getInputFramesLost(audio_io_handle_t ioHandle) const
 {
     Mutex::Autolock _l(mLock);
 
@@ -1044,7 +1044,7 @@ status_t AudioFlinger::setVoiceVolume(float value)
     return ret;
 }
 
-status_t AudioFlinger::getRenderPosition(size_t *halFrames, size_t *dspFrames,
+status_t AudioFlinger::getRenderPosition(uint32_t *halFrames, uint32_t *dspFrames,
         audio_io_handle_t output) const
 {
     status_t status;
@@ -2460,7 +2460,7 @@ void AudioFlinger::dumpTee(int fd, const sp<NBAIO_Source>& source, audio_io_hand
             }
         } else {
             if (fd >= 0) {
-                fdprintf(fd, "unable to rotate tees in %s: %s\n", teePath, strerror(errno));
+                dprintf(fd, "unable to rotate tees in %s: %s\n", teePath, strerror(errno));
             }
         }
         char teeTime[16];
@@ -2514,11 +2514,11 @@ void AudioFlinger::dumpTee(int fd, const sp<NBAIO_Source>& source, audio_io_hand
             write(teeFd, &temp, sizeof(temp));
             close(teeFd);
             if (fd >= 0) {
-                fdprintf(fd, "tee copied to %s\n", teePath);
+                dprintf(fd, "tee copied to %s\n", teePath);
             }
         } else {
             if (fd >= 0) {
-                fdprintf(fd, "unable to create tee %s: %s\n", teePath, strerror(errno));
+                dprintf(fd, "unable to create tee %s: %s\n", teePath, strerror(errno));
             }
         }
     }

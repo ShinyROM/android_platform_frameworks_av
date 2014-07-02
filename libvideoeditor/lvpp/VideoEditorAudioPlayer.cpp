@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <inttypes.h>
+
 #define LOG_NDEBUG 1
 #define LOG_TAG "VideoEditorAudioPlayer"
 #include <utils/Log.h>
@@ -372,7 +374,7 @@ status_t VideoEditorAudioPlayer::start(bool sourceAlreadyStarted) {
 
         // Get the duration in time of the audio BT
         if ( result == M4NO_ERROR ) {
-         ALOGV("VEAP: channels = %d freq = %d",
+         ALOGV("VEAP: channels = %" PRIu32 " freq = %" PRIu32,
          mAudioMixSettings->uiNbChannels,  mAudioMixSettings->uiSamplingFrequency);
 
             // No trim
@@ -440,7 +442,7 @@ status_t VideoEditorAudioPlayer::start(bool sourceAlreadyStarted) {
                 // do nothing
             }
 
-            ALOGV("VideoEditorAudioPlayer::startTime %d", startTime);
+            ALOGV("VideoEditorAudioPlayer::startTime %" PRIu32, startTime);
             seekTimeStamp = 0;
             if (startTime) {
                 if (startTime >= mBGAudioPCMFileDuration) {
@@ -671,8 +673,9 @@ size_t VideoEditorAudioPlayer::fillBuffer(void *data, size_t size) {
 
 
                         M4OSA_Void* ptr;
-                        ptr = (M4OSA_Void*)((unsigned int)mInputBuffer->data() +
-                        mInputBuffer->range_offset());
+                        ptr = reinterpret_cast<M4OSA_Void*>(
+                                reinterpret_cast<uintptr_t>(mInputBuffer->data()) +
+                                mInputBuffer->range_offset());
 
                         M4OSA_UInt32 len = mInputBuffer->range_length();
                         M4OSA_Context fp = M4OSA_NULL;
@@ -700,8 +703,8 @@ size_t VideoEditorAudioPlayer::fillBuffer(void *data, size_t size) {
                              mBGAudioPCMFileOriginalSeekPoint <=
                               (mBGAudioPCMFileTrimmedLength - len)) {
 
-                            ALOGV("Checking mBGAudioPCMFileHandle %d",
-                                (unsigned int)mBGAudioPCMFileHandle);
+                            ALOGV("Checking mBGAudioPCMFileHandle %p",
+                                  mBGAudioPCMFileHandle);
 
                             if (mBGAudioPCMFileHandle != M4OSA_NULL) {
                                 ALOGV("fillBuffer seeking file to %lld",

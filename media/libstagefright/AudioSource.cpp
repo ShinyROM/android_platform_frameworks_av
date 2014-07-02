@@ -68,7 +68,7 @@ AudioSource::AudioSource(
         int frameCount = kMaxBufferSize / sizeof(int16_t) / channelCount;
 
         // make sure that the AudioRecord total buffer size is large enough
-        int bufCount = 2;
+        size_t bufCount = 2;
         while ((bufCount * frameCount) < minFrameCount) {
             bufCount++;
         }
@@ -208,7 +208,7 @@ void AudioSource::rampVolume(
 }
 
 status_t AudioSource::read(
-        MediaBuffer **out, const ReadOptions *options) {
+        MediaBuffer **out, const ReadOptions * /* options */) {
     Mutex::Autolock autoLock(mLock);
     *out = NULL;
 
@@ -308,7 +308,7 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
     if (numLostBytes > 0) {
         // Loss of audio frames should happen rarely; thus the LOGW should
         // not cause a logging spam
-        ALOGW("Lost audio record data: %d bytes", numLostBytes);
+        ALOGW("Lost audio record data: %zu bytes", numLostBytes);
     }
 
     while (numLostBytes > 0) {

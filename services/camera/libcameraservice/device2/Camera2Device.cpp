@@ -25,6 +25,7 @@
 #define ALOGVV(...) ((void)0)
 #endif
 
+#include <inttypes.h>
 #include <utils/Log.h>
 #include <utils/Trace.h>
 #include <utils/Timers.h>
@@ -822,7 +823,7 @@ status_t Camera2Device::MetadataQueue::dump(int fd,
         result.append("      Stream slot: Empty\n");
         write(fd, result.string(), result.size());
     } else {
-        result.appendFormat("      Stream slot: %d entries\n",
+        result.appendFormat("      Stream slot: %zu entries\n",
                 mStreamSlot.size());
         int i = 0;
         for (List<camera_metadata_t*>::iterator r = mStreamSlot.begin();
@@ -837,7 +838,7 @@ status_t Camera2Device::MetadataQueue::dump(int fd,
         result = "      Main queue is empty\n";
         write(fd, result.string(), result.size());
     } else {
-        result = String8::format("      Main queue has %d entries:\n",
+        result = String8::format("      Main queue has %zu entries:\n",
                 mEntries.size());
         int i = 0;
         for (List<camera_metadata_t*>::iterator r = mEntries.begin();
@@ -1000,7 +1001,7 @@ status_t Camera2Device::StreamAdapter::connectToDevice(
         return BAD_VALUE;
     }
 
-    ALOGV("%s: New stream parameters %d x %d, format 0x%x, size %d",
+    ALOGV("%s: New stream parameters %d x %d, format 0x%x, size %zu",
             __FUNCTION__, width, height, format, size);
 
     mConsumerInterface = consumer;
@@ -1072,7 +1073,7 @@ status_t Camera2Device::StreamAdapter::connectToDevice(
                 mSize, 1, mFormat);
         if (res != OK) {
             ALOGE("%s: Unable to configure compressed stream buffer geometry"
-                    " %d x %d, size %d for stream %d",
+                    " %d x %d, size %zu for stream %d",
                     __FUNCTION__, mWidth, mHeight, mSize, mId);
             return res;
         }
@@ -1214,11 +1215,11 @@ status_t Camera2Device::StreamAdapter::dump(int fd,
     ATRACE_CALL();
     String8 result = String8::format("      Stream %d: %d x %d, format 0x%x\n",
             mId, mWidth, mHeight, mFormat);
-    result.appendFormat("        size %d, usage 0x%x, requested format 0x%x\n",
+    result.appendFormat("        size %zu, usage 0x%x, requested format 0x%x\n",
             mSize, mUsage, mFormatRequested);
     result.appendFormat("        total buffers: %d, dequeued buffers: %d\n",
             mTotalBuffers, mActiveBuffers);
-    result.appendFormat("        frame count: %d, last timestamp %lld\n",
+    result.appendFormat("        frame count: %d, last timestamp %" PRId64 "\n",
             mFrameCount, mLastTimestamp);
     write(fd, result.string(), result.size());
     return OK;

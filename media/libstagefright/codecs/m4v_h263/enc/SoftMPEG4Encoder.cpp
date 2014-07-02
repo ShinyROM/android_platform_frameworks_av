@@ -33,6 +33,8 @@
 
 #include "SoftMPEG4Encoder.h"
 
+#include <inttypes.h>
+
 namespace android {
 
 template<class T>
@@ -620,7 +622,7 @@ OMX_ERRORTYPE SoftMPEG4Encoder::internalSetParameter(
     }
 }
 
-void SoftMPEG4Encoder::onQueueFilled(OMX_U32 portIndex) {
+void SoftMPEG4Encoder::onQueueFilled(OMX_U32 /* portIndex */) {
     if (mSignalledError || mSawInputEOS) {
         return;
     }
@@ -683,7 +685,7 @@ void SoftMPEG4Encoder::onQueueFilled(OMX_U32 portIndex) {
             if (mStoreMetaDataInBuffers) {
                 if (inHeader->nFilledLen != 8) {
                     ALOGE("MetaData buffer is wrong size! "
-                            "(got %lu bytes, expected 8)", inHeader->nFilledLen);
+                            "(got %u bytes, expected 8)", inHeader->nFilledLen);
                     mSignalledError = true;
                     notify(OMX_EventError, OMX_ErrorUndefined, 0, 0);
                     return;
@@ -725,7 +727,7 @@ void SoftMPEG4Encoder::onQueueFilled(OMX_U32 portIndex) {
             if (!PVEncodeVideoFrame(mHandle, &vin, &vout,
                     &modTimeMs, outPtr, &dataLength, &nLayer) ||
                 !PVGetHintTrack(mHandle, &hintTrack)) {
-                ALOGE("Failed to encode frame or get hink track at frame %lld",
+                ALOGE("Failed to encode frame or get hink track at frame %" PRId64,
                     mNumInputFrames);
                 mSignalledError = true;
                 notify(OMX_EventError, OMX_ErrorUndefined, 0, 0);
@@ -771,7 +773,7 @@ uint8_t *SoftMPEG4Encoder::extractGrallocData(void *data, buffer_handle_t *buffe
     status_t res;
     if (type != kMetadataBufferTypeGrallocSource) {
         ALOGE("Data passed in with metadata mode does not have type "
-                "kMetadataBufferTypeGrallocSource (%d), has type %ld instead",
+                "kMetadataBufferTypeGrallocSource (%d), has type %d instead",
                 kMetadataBufferTypeGrallocSource, type);
         return NULL;
     }
